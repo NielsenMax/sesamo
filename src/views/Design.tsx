@@ -4,7 +4,7 @@ import { useEvent } from '@/state/event'
 import { Button, Notice, Panel, SelectField, Segmented } from '@/components/ui'
 import { getPref, setPref } from '@/lib/db'
 import { qrPayload } from '@/lib/codes'
-import { buildPdf, buildQrZip, download, slug, type Paper } from '@/lib/export'
+import { buildPdf, buildQrZip, buildTicketPdfZip, download, slug, type Paper } from '@/lib/export'
 import {
   DEFAULT_DESIGN,
   PRESET_SIZE,
@@ -41,6 +41,7 @@ export function Design() {
   const [paper, setPaper] = useState<Paper>('a4')
   const [scope, setScope] = useState<Scope>('all')
   const [svg, setSvg] = useState('')
+  const [previewIndex, setPreviewIndex] = useState(0)
   const [working, setWorking] = useState<null | { done: number; total: number }>(null)
   const [error, setError] = useState<string | null>(null)
   const dragging = useRef<CustomFieldId | null>(null)
@@ -71,7 +72,9 @@ export function Design() {
     return live
   }, [tickets, scope, selected, printed])
 
-  const previewTicket = scoped[0] ?? tickets[0] ?? SAMPLE
+  // The previewed ticket is also the one "download this one" produces, so it
+  // has to be pickable rather than always the first in the list.
+  const previewTicket = scoped[Math.min(previewIndex, scoped.length - 1)] ?? tickets[0] ?? SAMPLE
   const size = ticketSize(design)
 
   /* The preview is drawn from the same primitives as the PDF, so what is on
@@ -156,6 +159,51 @@ export function Design() {
         onProgress: (done, total) => setWorking({ done, total }),
       })
       download(blob, `${slug(event.name)}-entradas.pdf`)
+      await markPrinted(scoped.map((x) => x.code))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t.errors.generic)
+    } finally {
+      setWorking(null)
+    }
+  }
+
+  function labels() {
+    return { holder: t.tickets.holder, unassigned: t.tickets.unassigned }
+  }
+
+  /** One file for one guest, on a page trimmed to the ticket. */
+  async function exportOne() {
+    if (!event || previewTicket === SAMPLE) return
+    setError(null)
+    setWorking({ done: 0, total: 1 })
+    try {
+      const blob = await buildPdf(event, [previewTicket], design, {
+        paper: 'fit',
+        locale: lang === 'es' ? 'es-AR' : 'en-GB',
+        labels: labels(),
+      })
+      download(blob, `${slug(event.name)}-${previewTicket.code}.pdf`)
+      await markPrinted([previewTicket.code])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t.errors.generic)
+    } finally {
+      setWorking(null)
+    }
+  }
+
+  /** A ZIP holding one PDF per ticket — one ticket per page, ready to send out. */
+  async function exportEach() {
+    if (!event || !scoped.length) return
+    setError(null)
+    setWorking({ done: 0, total: scoped.length })
+    try {
+      const blob = await buildTicketPdfZip(event, scoped, design, {
+        paper,
+        locale: lang === 'es' ? 'es-AR' : 'en-GB',
+        labels: labels(),
+        onProgress: (done, total) => setWorking({ done, total }),
+      })
+      download(blob, `${slug(event.name)}-entradas-pdf.zip`)
       await markPrinted(scoped.map((x) => x.code))
     } catch (err) {
       setError(err instanceof Error ? err.message : t.errors.generic)
@@ -344,6 +392,7 @@ export function Design() {
               <SelectField label={t.design.paper} value={paper} onChange={(e) => setPaper(e.target.value as Paper)}>
                 <option value="a4">A4</option>
                 <option value="letter">Letter</option>
+                <option value="fit">{t.design.paperFit}</option>
               </SelectField>
               <div className="field">
                 <span className="field__label eyebrow">{t.design.scope}</span>
@@ -377,6 +426,9 @@ export function Design() {
               >
                 {working ? `${t.design.building} ${working.done}/${working.total}` : t.design.downloadPdf}
               </Button>
+              <Button disabled={!scoped.length || Boolean(working)} onClick={() => void exportEach()}>
+                {t.design.downloadEach}
+              </Button>
               <Button disabled={!scoped.length || Boolean(working)} onClick={() => void exportZip()}>
                 {t.design.downloadPng}
               </Button>
@@ -384,7 +436,25 @@ export function Design() {
           </div>
 
           <div className="design__preview">
-            <p className="eyebrow">{t.design.previewOf(previewTicket.serial)}</p>
+            <div className="row row--between">
+              <p className="eyebrow">{t.design.previewOf(previewTicket.serial)}</p>
+              {scoped.length > 1 && (
+                <div className="select select--slim">
+                  <select
+                    aria-label={t.design.which}
+                    value={Math.min(previewIndex, scoped.length - 1)}
+                    onChange={(e) => setPreviewIndex(Number(e.target.value))}
+                  >
+                    {scoped.map((ticket, i) => (
+                      <option key={ticket.code} value={i}>
+                        {ticket.code}
+                        {ticket.holder ? ` · ${ticket.holder}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
             <div className="stage__wrap">
               <div
                 className="stage"
@@ -447,9 +517,18 @@ export function Design() {
                 </div>
               )}
             </div>
-            <p className="stage__dims mono">
-              {size.w} × {size.h} mm
-            </p>
+            <div className="row row--between">
+              <Button
+                size="sm"
+                disabled={previewTicket === SAMPLE || Boolean(working)}
+                onClick={() => void exportOne()}
+              >
+                {t.design.downloadOne}
+              </Button>
+              <p className="stage__dims mono">
+                {size.w} × {size.h} mm
+              </p>
+            </div>
           </div>
         </div>
       </Panel>

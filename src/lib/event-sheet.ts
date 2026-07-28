@@ -283,10 +283,13 @@ export type NewEventInput = {
 
 function summaryValues(input: NewEventInput, lang: SheetLang, tabs: TabMap) {
   const L = SUMMARY_LABELS[lang]
-  const T = quoteTab(tabs.tickets)
   const admitted = STATUS_WORDS[lang].admitted
   const issued = STATUS_WORDS[lang].issued
   const voided = STATUS_WORDS[lang].voided
+  // INDIRECT keeps the range as a plain string, so nothing Sheets does to the
+  // grid can move it — not an append, and not a human inserting a row in the
+  // middle of the guest list, which this sheet openly invites.
+  const ref = (column: string) => `INDIRECT("${quoteTab(tabs.tickets)}!${column}2:${column}")`
   return [
     [L.title],
     [],
@@ -297,10 +300,10 @@ function summaryValues(input: NewEventInput, lang: SheetLang, tabs: TabMap) {
     [L.tiers, input.tiers.join(', ')],
     [],
     [L.counts],
-    [L.issued, `=COUNTA(${T}!A2:A)`],
-    [L.admitted, `=COUNTIF(${T}!E2:E,"${admitted}")`],
-    [L.pending, `=COUNTIF(${T}!E2:E,"${issued}")`],
-    [L.voided, `=COUNTIF(${T}!E2:E,"${voided}")`],
+    [L.issued, `=COUNTA(${ref('A')})`],
+    [L.admitted, `=COUNTIF(${ref('E')},"${admitted}")`],
+    [L.pending, `=COUNTIF(${ref('E')},"${issued}")`],
+    [L.voided, `=COUNTIF(${ref('E')},"${voided}")`],
     [],
     [L.readme],
   ]

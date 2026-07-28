@@ -15,8 +15,9 @@ import type { EventConfig, Ticket } from './types'
 
 const MM_PER_PT = 25.4 / 72
 
-export type Paper = 'a4' | 'letter'
-export const PAPER_SIZE: Record<Paper, { w: number; h: number }> = {
+/** `fit` trims the page to the ticket — one ticket per page, nothing to cut. */
+export type Paper = 'a4' | 'letter' | 'fit'
+export const PAPER_SIZE: Record<'a4' | 'letter', { w: number; h: number }> = {
   a4: { w: 210, h: 297 },
   letter: { w: 215.9, h: 279.4 },
 }
@@ -131,14 +132,34 @@ function cutMarks(doc: jsPDF, x: number, y: number, w: number, h: number) {
   }
 }
 
-export async function buildPdf(
-  event: EventConfig,
-  tickets: Ticket[],
-  design: TicketDesign,
-  options: ExportOptions,
-): Promise<Blob> {
-  const size = ticketSize(design)
-  const page = PAPER_SIZE[options.paper]
+type Sheet = {
+  doc: jsPDF
+  cols: number
+  perPage: number
+  offsetX: number
+  marginY: number
+}
+
+/** Works out the page and grid for a paper choice, including trim-to-ticket. */
+function openSheet(paper: Paper, size: { w: number; h: number }): Sheet {
+  const shared = {
+    unit: 'mm' as const,
+    // A vector QR is thousands of tiny rectangles; deflating the content
+    // streams turns a 600 kB sheet of tickets into well under a tenth of that.
+    compress: true,
+  }
+
+  if (paper === 'fit') {
+    return {
+      doc: new jsPDF({ ...shared, format: [size.w, size.h], orientation: size.w > size.h ? 'landscape' : 'portrait' }),
+      cols: 1,
+      perPage: 1,
+      offsetX: 0,
+      marginY: 0,
+    }
+  }
+
+  const page = PAPER_SIZE[paper]
   // Turn the page if the tickets simply fit better sideways.
   const portraitCols = Math.max(1, Math.floor((page.w - 2 * MARGIN + GUTTER) / (size.w + GUTTER)))
   const portraitRows = Math.max(1, Math.floor((page.h - 2 * MARGIN + GUTTER) / (size.h + GUTTER)))
@@ -146,19 +167,27 @@ export async function buildPdf(
   const landscapeRows = Math.max(1, Math.floor((page.w - 2 * MARGIN + GUTTER) / (size.h + GUTTER)))
   const landscape = landscapeCols * landscapeRows > portraitCols * portraitRows
 
-  const doc = new jsPDF({
-    unit: 'mm',
-    format: options.paper,
-    orientation: landscape ? 'landscape' : 'portrait',
-    // A vector QR is thousands of tiny rectangles; deflating the content
-    // streams turns a 600 kB sheet of tickets into well under a tenth of that.
-    compress: true,
-  })
-  const pageW = landscape ? page.h : page.w
   const cols = landscape ? landscapeCols : portraitCols
   const rows = landscape ? landscapeRows : portraitRows
-  const perPage = cols * rows
-  const offsetX = (pageW - (cols * size.w + (cols - 1) * GUTTER)) / 2
+  const pageW = landscape ? page.h : page.w
+
+  return {
+    doc: new jsPDF({ ...shared, format: paper, orientation: landscape ? 'landscape' : 'portrait' }),
+    cols,
+    perPage: cols * rows,
+    offsetX: (pageW - (cols * size.w + (cols - 1) * GUTTER)) / 2,
+    marginY: MARGIN,
+  }
+}
+
+export async function buildPdf(
+  event: EventConfig,
+  tickets: Ticket[],
+  design: TicketDesign,
+  options: ExportOptions,
+): Promise<Blob> {
+  const size = ticketSize(design)
+  const { doc, cols, perPage, offsetX, marginY } = openSheet(options.paper, size)
 
   for (let i = 0; i < tickets.length; i++) {
     const slot = i % perPage
@@ -166,7 +195,7 @@ export async function buildPdf(
     const col = slot % cols
     const row = Math.floor(slot / cols)
     const x = offsetX + col * (size.w + GUTTER)
-    const y = MARGIN + row * (size.h + GUTTER)
+    const y = marginY + row * (size.h + GUTTER)
 
     const payload = await qrPayload(event.secret, event.eventCode, tickets[i].serial)
     const prims = renderTicket({
@@ -188,6 +217,34 @@ export async function buildPdf(
   }
   options.onProgress?.(tickets.length, tickets.length)
   return doc.output('blob')
+}
+
+/**
+ * One PDF per ticket, zipped — what you want when each guest gets their own
+ * file rather than a sheet somebody has to cut up.
+ */
+export async function buildTicketPdfZip(
+  event: EventConfig,
+  tickets: Ticket[],
+  design: TicketDesign,
+  options: ExportOptions,
+): Promise<Blob> {
+  const zip = new JSZip()
+  const folder = zip.folder(slug(event.name))!
+  const index: string[] = ['file,code,serial,name,type']
+
+  for (let i = 0; i < tickets.length; i++) {
+    const ticket = tickets[i]
+    const pdf = await buildPdf(event, [ticket], design, { ...options, onProgress: undefined })
+    const name = `${ticket.code}${ticket.holder ? `-${slug(ticket.holder)}` : ''}.pdf`
+    folder.file(name, pdf)
+    index.push([name, ticket.code, ticket.serial, ticket.holder, ticket.tier].map(csv).join(','))
+    options.onProgress?.(i + 1, tickets.length)
+    // Yield so the progress readout actually paints during a long export.
+    await new Promise((r) => setTimeout(r, 0))
+  }
+  folder.file('index.csv', index.join('\n'))
+  return zip.generateAsync({ type: 'blob' })
 }
 
 export async function buildQrZip(

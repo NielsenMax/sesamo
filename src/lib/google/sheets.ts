@@ -130,16 +130,23 @@ export function batchUpdateValues(
   })
 }
 
+/**
+ * Appends into the blank rows the sheet already has (`OVERWRITE`), rather than
+ * inserting new ones. `INSERT_ROWS` looks harmless but makes Sheets rewrite
+ * every reference that spans the insertion point — the Resumen counters, whose
+ * `Entradas!A2:A` silently became `A6:A` after the first four tickets landed,
+ * and then counted nothing.
+ */
 export function appendValues(
   id: string,
   range: string,
   values: unknown[][],
   valueInputOption: InputOption = 'RAW',
 ): Promise<unknown> {
-  return api(
-    `/${id}/values/${encodeURIComponent(range)}:append?valueInputOption=${valueInputOption}&insertDataOption=INSERT_ROWS`,
-    { method: 'POST', body: JSON.stringify({ values }) },
-  )
+  return api(`/${id}/values/${encodeURIComponent(range)}:append?valueInputOption=${valueInputOption}`, {
+    method: 'POST',
+    body: JSON.stringify({ values }),
+  })
 }
 
 export function spreadsheetUrl(id: string): string {

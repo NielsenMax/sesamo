@@ -299,6 +299,13 @@
   pointer-events: none;
 }
 
+.select--slim select {
+  padding: 0.35em 1.8em 0.35em 0.5em;
+  font-size: var(--step--2);
+  font-family: var(--font-mono);
+  max-width: 16rem;
+}
+
 .select select:focus {
   outline: none;
   border-color: var(--ink);

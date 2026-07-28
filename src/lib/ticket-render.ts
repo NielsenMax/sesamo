@@ -87,7 +87,7 @@ function truncate(s: string, max: number) {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s
 }
 
-/** The event line: `15 AGO 2026 · CLUB X`, with whichever halves exist. */
+/** The event line: `15 AGO 2026 · 21:00 · CLUB X`, with whichever parts exist. */
 function subtitle(event: EventConfig, locale: string): string {
   const parts: string[] = []
   if (event.date) {
@@ -99,6 +99,10 @@ function subtitle(event: EventConfig, locale: string): string {
           .replace(/\./g, '')
       : event.date
     parts.push(formatted)
+    // The door opens at a time, not on a date — print it whenever there is one.
+    if (d && /\d{1,2}:\d{2}/.test(event.date)) {
+      parts.push(d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false }))
+    }
   }
   if (event.venue) parts.push(upper(event.venue))
   return parts.join('  ·  ')
