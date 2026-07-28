@@ -1,0 +1,5 @@
+# esbuild needs its install script to place the platform binary Vite runs on.
+# core-js only prints a funding banner, so it stays off.
+allowBuilds:
+  core-js: false
+  esbuild: true

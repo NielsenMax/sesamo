@@ -72,39 +72,58 @@ El código impreso más la clave regeneran la firma, así que la planilla nunca 
 
 ### 1. Google Cloud
 
-Una vez, y sirve para siempre. En <https://console.cloud.google.com>:
+Proyecto: **`sesamo-503823`** (número `861806562872`), en la organización `maxi-a-nielsen-org`.
 
-1. **Creá un proyecto** (o usá uno existente). Anotá el **número de proyecto** —
-   _Project number_, no el ID — que aparece en el panel de inicio.
-2. **APIs y servicios → Biblioteca**: habilitá **Google Sheets API** y **Google Picker API**.
-3. **Pantalla de consentimiento de OAuth**: tipo *External*, completá nombre y correo de soporte.
-   Podés dejarla en modo *Testing* y agregarte como usuario de prueba: alcanza para vos y hasta
-   100 cuentas más. No hace falta verificación porque `drive.file` no es un permiso restringido.
-4. **Credenciales → Crear credenciales → ID de cliente de OAuth**, tipo *Aplicación web*:
-   - **Orígenes de JavaScript autorizados**:
-     `https://sesamo.fernet.cc` y `http://localhost:5173`
-   - No hace falta URI de redireccionamiento: el flujo es de token, en el navegador.
-5. **Credenciales → Crear credenciales → Clave de API**. Restringila a la **Google Picker API**
-   y, en restricción de aplicación, a los referentes `https://sesamo.fernet.cc/*` y
-   `http://localhost:5173/*`.
+**Ya hecho por CLI:**
+
+```bash
+gcloud services enable sheets.googleapis.com picker.googleapis.com --project=sesamo-503823
+
+gcloud services api-keys create --project=sesamo-503823 \
+  --display-name="Sesamo web (Picker)" \
+  --api-target=service=picker.googleapis.com \
+  --allowed-referrers="https://sesamo.fernet.cc/*,http://localhost:5173/*"
+```
+
+La clave y el número de proyecto ya están en `.env.local`.
+
+**Falta hacer a mano.** Google no expone la creación de clientes OAuth de consumidor por API
+—ni por `gcloud`— así que estos dos pasos son de consola. Son cinco minutos y una sola vez:
+
+1. **Pantalla de consentimiento** →
+   <https://console.cloud.google.com/auth/branding?project=sesamo-503823>
+   Elegí **External**: el dueño del proyecto es una cuenta `@gmail.com`, y *Internal* solo
+   admite cuentas del dominio de la organización. Poné nombre (`Sésamo`) y correo de soporte.
+   Después, en **Audience**, agregate como usuario de prueba —o publicá directamente: los
+   permisos que pide (`drive.file` y `email`) no son sensibles, así que no requiere verificación.
+
+2. **Cliente OAuth** →
+   <https://console.cloud.google.com/auth/clients?project=sesamo-503823>
+   *Create client* → **Web application**, nombre `Sésamo web`.
+   - **Authorized JavaScript origins**: `https://sesamo.fernet.cc` y `http://localhost:5173`
+   - **Redirect URIs**: ninguno. El flujo es de token, en el navegador.
+
+   Copiá el Client ID a `VITE_GOOGLE_CLIENT_ID` en `.env.local`.
 
 Los tres valores son públicos por diseño: identifican a la app, no autorizan nada por sí solos.
 
 ### 2. Local
 
 ```bash
-npm install
-cp .env.example .env.local     # pegá los tres valores
-npm run dev                    # http://localhost:5173
+pnpm install
+pnpm dev                       # http://localhost:5173
 ```
 
 ### 3. Cloudflare Pages → `sesamo.fernet.cc`
 
 ```
-Build command:      npm run build
+Build command:      pnpm build
 Build output:       dist
 Node version:       20 o superior
 ```
+
+Cloudflare detecta pnpm por el `pnpm-lock.yaml`. Si preferís fijarlo, poné la variable
+`PNPM_VERSION=11.5.2`.
 
 Variables de entorno (producción **y** preview): `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_API_KEY`,
 `VITE_GOOGLE_PROJECT_NUMBER`.
@@ -160,9 +179,9 @@ scripts/make-icons.mjs  rasteriza la marca a PNG sin dependencias
 ## Comandos
 
 ```bash
-npm run dev        # servidor de desarrollo
-npm run build      # typecheck + build de producción
-npm run preview    # servir dist/ localmente
-npm run typecheck  # solo tipos
+pnpm dev          # servidor de desarrollo
+pnpm build        # typecheck + build de producción
+pnpm preview      # servir dist/ localmente
+pnpm typecheck    # solo tipos
 node scripts/make-icons.mjs   # regenerar los íconos desde la marca
 ```
