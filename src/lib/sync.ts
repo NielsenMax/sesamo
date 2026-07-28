@@ -35,8 +35,25 @@ export async function pull(event: StoredEvent): Promise<StoredEvent> {
   return updated
 }
 
+/*
+  Pushes are serialised process-wide. Every scan fires one, so at a busy door
+  two can easily overlap — and two calls that both read the pending queue before
+  either marks it synced would append the same audit rows twice. Queueing costs
+  nothing here and makes duplicates impossible.
+*/
+let chain: Promise<unknown> = Promise.resolve()
+
+export function push(event: StoredEvent): Promise<{ scans: number; tickets: number }> {
+  const next = chain.then(
+    () => runPush(event),
+    () => runPush(event),
+  )
+  chain = next.catch(() => undefined)
+  return next
+}
+
 /** Returns how many scan rows made it up. Throws if Google refused. */
-export async function push(event: StoredEvent): Promise<{ scans: number; tickets: number }> {
+async function runPush(event: StoredEvent): Promise<{ scans: number; tickets: number }> {
   const scans = await db.pendingScans(event.spreadsheetId)
   if (scans.length) {
     await appendScans(event, event.tabs, scans)

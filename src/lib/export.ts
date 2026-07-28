@@ -146,7 +146,14 @@ export async function buildPdf(
   const landscapeRows = Math.max(1, Math.floor((page.w - 2 * MARGIN + GUTTER) / (size.h + GUTTER)))
   const landscape = landscapeCols * landscapeRows > portraitCols * portraitRows
 
-  const doc = new jsPDF({ unit: 'mm', format: options.paper, orientation: landscape ? 'landscape' : 'portrait' })
+  const doc = new jsPDF({
+    unit: 'mm',
+    format: options.paper,
+    orientation: landscape ? 'landscape' : 'portrait',
+    // A vector QR is thousands of tiny rectangles; deflating the content
+    // streams turns a 600 kB sheet of tickets into well under a tenth of that.
+    compress: true,
+  })
   const pageW = landscape ? page.h : page.w
   const cols = landscape ? landscapeCols : portraitCols
   const rows = landscape ? landscapeRows : portraitRows
@@ -230,7 +237,7 @@ export function slug(text: string): string {
   return (
     text
       .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
+      .replace(/\p{Diacritic}/gu, '')
       .replace(/[^a-zA-Z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
       .toLowerCase() || 'sesamo'

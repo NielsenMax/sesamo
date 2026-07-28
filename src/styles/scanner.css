@@ -1,0 +1,370 @@
+/*
+  Sésamo — the door.
+
+  One screen, held at arm's length, in the dark, by someone who has six people
+  waiting. Nothing here is smaller than it has to be, the verdict is legible
+  before you've focused on it, and the only decoration is the one that carries
+  meaning: the mark opening.
+*/
+
+.door {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  color: var(--ink);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.door__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--step--2);
+  font-family: var(--font-mono);
+}
+
+.door__back {
+  text-decoration: none;
+  color: var(--ink-2);
+}
+
+.door__count {
+  font-size: var(--step--1);
+  color: var(--amber);
+}
+
+.door__net {
+  color: var(--go);
+}
+
+.door__net.is-off {
+  color: var(--ink-3);
+}
+
+.door__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.door__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.door__idle {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-6) var(--sp-5);
+  text-align: center;
+  color: var(--ink);
+}
+
+.door__ready {
+  font-size: var(--step--1);
+  color: var(--ink-2);
+}
+
+.door__note {
+  font-size: var(--step--1);
+  color: var(--ink-3);
+  max-width: 28ch;
+  line-height: 1.45;
+}
+
+.door__error {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 78%;
+  text-transform: uppercase;
+  font-size: var(--step-2);
+  color: var(--stamp);
+}
+
+.door__hint {
+  position: absolute;
+  bottom: var(--sp-6);
+  z-index: 2;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-stretch: 86%;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: var(--step--1);
+  color: var(--amber);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+.door__foot {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--rule);
+}
+
+.door__manual {
+  padding: var(--sp-4);
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.door__manual .row {
+  flex-wrap: nowrap;
+}
+
+.door__manual .input {
+  flex: 1;
+  font-size: var(--step-1);
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+/* -------------------------------------------------------------- reticle --- */
+/*
+  The aiming frame is the mark's own geometry: four corner brackets cut like QR
+  finder patterns, with a sweep that tells you the camera is alive.
+*/
+
+.reticle {
+  position: relative;
+  z-index: 2;
+  width: min(64vw, 17rem);
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.reticle__corner {
+  position: absolute;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 4px solid var(--amber);
+  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.7));
+}
+
+.reticle__corner--tl {
+  top: 0;
+  left: 0;
+  border-right: none;
+  border-bottom: none;
+}
+
+.reticle__corner--tr {
+  top: 0;
+  right: 0;
+  border-left: none;
+  border-bottom: none;
+}
+
+.reticle__corner--bl {
+  bottom: 0;
+  left: 0;
+  border-right: none;
+  border-top: none;
+}
+
+.reticle__corner--br {
+  bottom: 0;
+  right: 0;
+  border-left: none;
+  border-top: none;
+}
+
+.reticle__sweep {
+  position: absolute;
+  inset-inline: 0.5rem;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  animation: sweep 2.6s var(--ease) infinite;
+}
+
+@keyframes sweep {
+  0%,
+  100% {
+    top: 8%;
+    opacity: 0.15;
+  }
+  50% {
+    top: 92%;
+    opacity: 0.9;
+  }
+}
+
+/* ---------------------------------------------------------------- stamp --- */
+/*
+  A verdict lands the way a rubber stamp lands: all at once, slightly crooked,
+  and impossible to misread across a doorway.
+*/
+
+.stamp {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-5) var(--sp-4);
+  text-align: center;
+  overflow-y: auto;
+  background: var(--paper-sunk);
+  animation: stamp-in 0.28s var(--ease-slam) both;
+}
+
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.stamp--go {
+  background: radial-gradient(120% 90% at 50% 40%, var(--go-wash), var(--paper-sunk) 78%);
+}
+
+.stamp--stamp {
+  background: radial-gradient(120% 90% at 50% 40%, var(--stamp-wash), var(--paper-sunk) 78%);
+}
+
+.stamp--amber {
+  background: radial-gradient(120% 90% at 50% 40%, var(--amber-wash), var(--paper-sunk) 78%);
+}
+
+.stamp__mark {
+  color: var(--go);
+}
+
+.stamp__label {
+  font-size: var(--step-5);
+  line-height: 0.86;
+  letter-spacing: -0.01em;
+  padding: 0.12em 0.3em 0.16em;
+  border: 5px solid currentColor;
+  border-radius: 4px;
+  rotate: -3deg;
+  animation: slam 0.3s var(--ease-slam) both;
+}
+
+@keyframes slam {
+  from {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.stamp--go .stamp__label {
+  color: var(--go);
+}
+
+.stamp--stamp .stamp__label {
+  color: var(--stamp);
+}
+
+.stamp--amber .stamp__label {
+  color: var(--amber);
+}
+
+.stamp--stamp .stamp__mark {
+  color: var(--stamp);
+}
+
+.stamp--amber .stamp__mark {
+  color: var(--amber);
+}
+
+.stamp__why {
+  font-size: var(--step-0);
+  color: var(--ink-2);
+  max-width: 30ch;
+  margin-top: var(--sp-2);
+}
+
+.stamp__code {
+  font-size: var(--step-1);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-2);
+  margin-top: var(--sp-2);
+}
+
+.stamp__holder {
+  font-size: var(--step-3);
+  margin-top: var(--sp-1);
+}
+
+.stamp__tier {
+  color: var(--amber);
+  font-size: var(--step--1);
+}
+
+.stamp__history {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 2px solid var(--rule);
+  min-width: min(22rem, 80vw);
+}
+
+.stamp__times {
+  list-style: none;
+  padding: 0;
+  margin-top: var(--sp-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  justify-content: center;
+  font-size: var(--step-1);
+  font-weight: 700;
+}
+
+.stamp__actions {
+  margin-top: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  align-items: stretch;
+  width: min(22rem, 82vw);
+}
+
+.stamp__note {
+  font-size: var(--step--1);
+  color: var(--go);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reticle__sweep {
+    animation: none;
+    top: 50%;
+    opacity: 0.6;
+  }
+}

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { es, type Dict } from './es'
 import { en } from './en'
+import { parseLocal } from '@/lib/dates'
 
 export type Lang = 'es' | 'en'
 
@@ -40,11 +41,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<I18n>(() => {
     const locale = lang === 'es' ? 'es-AR' : 'en-GB'
-    const asDate = (v: string | Date | undefined) => {
-      if (!v) return null
-      const d = v instanceof Date ? v : new Date(v)
-      return Number.isNaN(d.getTime()) ? null : d
-    }
+    const asDate = (v: string | Date | undefined) => parseLocal(v)
     return {
       lang,
       t: DICTS[lang],

@@ -12,6 +12,7 @@ import * as sheet from '@/lib/event-sheet'
 import { pull as syncPull, push as syncPush, watchOnline } from '@/lib/sync'
 import { judge, type Verdict } from '@/lib/verdict'
 import { SheetsError } from '@/lib/google/sheets'
+import { AuthError } from '@/lib/google/auth'
 import type { Scan, ScanResult, StoredEvent, Ticket } from '@/lib/types'
 import { useI18n } from '@/i18n'
 
@@ -36,6 +37,13 @@ type EventCtx = {
   saveDetails: (input: sheet.NewEventInput) => Promise<void>
   check: (raw: string, mode: 'camera' | 'manual') => Promise<Verdict>
   letThrough: (verdict: Verdict) => Promise<void>
+
+  /* Shared between the ticket list and the design view: what you tick in one
+     is what the other offers to print. */
+  selected: string[]
+  setSelected: (codes: string[]) => void
+  printed: string[]
+  markPrinted: (codes: string[]) => Promise<void>
 }
 
 const Ctx = createContext<EventCtx | null>(null)
@@ -49,7 +57,26 @@ export function EventProvider({ spreadsheetId, children }: { spreadsheetId: stri
   const [scans, setScans] = useState<Scan[]>([])
   const [online, setOnline] = useState(navigator.onLine)
   const [busy, setBusy] = useState<EventCtx['busy']>('idle')
+  const [selected, setSelected] = useState<string[]>([])
+  const [printed, setPrinted] = useState<string[]>([])
   const device = useRef('')
+
+  const printedKey = `printed:${spreadsheetId}`
+
+  useEffect(() => {
+    void db.getPref<string[]>(printedKey).then((v) => setPrinted(v ?? []))
+  }, [printedKey])
+
+  const markPrinted = useCallback(
+    async (codes: string[]) => {
+      setPrinted((prev) => {
+        const next = Array.from(new Set([...prev, ...codes]))
+        void db.setPref(printedKey, next)
+        return next
+      })
+    },
+    [printedKey],
+  )
 
   const describe = useCallback(
     (err: unknown): string => {
@@ -60,10 +87,20 @@ export function EventProvider({ spreadsheetId, children }: { spreadsheetId: stri
         if (err.kind === 'network') return t.errors.network
         if (err.kind === 'auth') return t.auth.expired
       }
+      if (err instanceof AuthError) {
+        return err.kind === 'config' ? t.auth.missingConfigHelp : t.auth.expired
+      }
       return err instanceof Error && err.message ? err.message : t.errors.generic
     },
     [t],
   )
+
+  // Held in refs so switching language doesn't re-run the load effect and
+  // bounce the whole view back through its loading state.
+  const describeRef = useRef(describe)
+  describeRef.current = describe
+  const messages = useRef(t)
+  messages.current = t
 
   const reloadLocal = useCallback(async () => {
     const [nextTickets, nextScans] = await Promise.all([db.getTickets(spreadsheetId), db.getScans(spreadsheetId)])
@@ -100,7 +137,7 @@ export function EventProvider({ spreadsheetId, children }: { spreadsheetId: stri
       }
 
       if (!navigator.onLine) {
-        setError(t.errors.notFound)
+        setError(messages.current.errors.notFound)
         setState('error')
         return
       }
@@ -108,7 +145,7 @@ export function EventProvider({ spreadsheetId, children }: { spreadsheetId: stri
         const probe = await sheet.probeSpreadsheet(spreadsheetId)
         if (cancelled) return
         if (probe.kind !== 'ready') {
-          setError(probe.kind === 'uninitialised' ? t.errors.badSheet : t.errors.corruptConfig)
+          setError(probe.kind === 'uninitialised' ? messages.current.errors.badSheet : messages.current.errors.corruptConfig)
           setState('error')
           return
         }
@@ -128,14 +165,14 @@ export function EventProvider({ spreadsheetId, children }: { spreadsheetId: stri
         setState('ready')
       } catch (err) {
         if (cancelled) return
-        setError(describe(err))
+        setError(describeRef.current(err))
         setState('error')
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [spreadsheetId, reloadLocal, describe, t])
+  }, [spreadsheetId, reloadLocal])
 
   useEffect(() => watchOnline(setOnline), [])
 
@@ -339,8 +376,33 @@ export function EventProvider({ spreadsheetId, children }: { spreadsheetId: stri
       saveDetails,
       check,
       letThrough,
+      selected,
+      setSelected,
+      printed,
+      markPrinted,
     }),
-    [state, error, event, tickets, scans, online, pending, busy, admitted, pull, push, issue, patch, patchMany, saveDetails, check, letThrough],
+    [
+      state,
+      error,
+      event,
+      tickets,
+      scans,
+      online,
+      pending,
+      busy,
+      admitted,
+      pull,
+      push,
+      issue,
+      patch,
+      patchMany,
+      saveDetails,
+      check,
+      letThrough,
+      selected,
+      printed,
+      markPrinted,
+    ],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

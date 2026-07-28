@@ -75,14 +75,14 @@ export function Wordmark({
   tagline?: boolean
   lit?: boolean
 }) {
-  const markSize = size === 'lg' ? 44 : size === 'md' ? 26 : 20
   return (
     <span className={`wordmark wordmark--${size}`}>
-      <Mark size={markSize} tone="current" lit={lit} />
-      <span className="wordmark__text">
-        <span className="wordmark__name display">Sésamo</span>
-        {tagline && <span className="wordmark__tag eyebrow">ábrete · open up</span>}
+      {/* The mark sits inline so its open floor lands on the type's baseline. */}
+      <span className="wordmark__name display">
+        <Mark size="0.78em" tone="current" lit={lit} />
+        Sésamo
       </span>
+      {tagline && <span className="wordmark__tag eyebrow">ábrete · open up</span>}
     </span>
   )
 }

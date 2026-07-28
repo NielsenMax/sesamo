@@ -69,6 +69,7 @@ export const es = {
     notSesamoHelp: 'Puedo preparar las solapas Resumen, Entradas, Escaneos y Config sin tocar lo que ya tiene.',
     prepare: 'Preparar la planilla',
     alreadyReady: 'Esta planilla ya está lista. Te llevo adentro.',
+    how: 'Cómo funciona',
     steps: {
       one: 'Creás el evento y Sésamo arma la planilla.',
       two: 'Generás entradas con QR firmado y las imprimís.',
@@ -173,6 +174,8 @@ export const es = {
     accent: 'Color',
     logo: 'Logo del evento',
     logoHint: 'PNG o JPG. Aparece arriba a la izquierda.',
+    logoUpload: 'Subir logo',
+    logoReplace: 'Cambiar logo',
     preview: 'Vista previa',
     previewOf: (n: number) => `Vista previa · entrada ${n}`,
     downloadPdf: 'Descargar PDF',
@@ -183,6 +186,7 @@ export const es = {
     scopeSelected: 'Solo las seleccionadas',
     scopeUnprinted: 'Las que todavía no descargué',
     nothingToPrint: 'No hay entradas para imprimir con ese filtro.',
+    willPrint: (n: number) => `${n} ${n === 1 ? 'entrada lista' : 'entradas listas'} para imprimir`,
   },
 
   scanner: {
@@ -232,6 +236,8 @@ export const es = {
     title: 'Registro',
     lead: 'Cada lectura queda anotada, entre y no entre.',
     empty: 'Sin lecturas todavía.',
+    filterIn: 'Entraron',
+    filterTurned: 'Rechazadas',
     time: 'Hora',
     result: 'Resultado',
     detail: 'Detalle',
@@ -312,6 +318,7 @@ export const es = {
     corruptConfig: 'La solapa Config está incompleta. Sin la firma no puedo validar los QR.',
     quota: 'Google cortó por límite de pedidos. Esperá unos segundos.',
   },
-} as const
+}
 
+/** The shape every language must satisfy; `en.ts` is checked against it. */
 export type Dict = typeof es

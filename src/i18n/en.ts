@@ -68,7 +68,8 @@ export const en: Dict = {
     notSesamo: "That spreadsheet isn't a Sésamo event yet",
     notSesamoHelp: 'I can set up the Summary, Tickets, Scans and Config tabs without touching what it already holds.',
     prepare: 'Set up the spreadsheet',
-    alreadyReady: "This spreadsheet is ready. Taking you in.",
+    alreadyReady: 'This spreadsheet is ready. Taking you in.',
+    how: 'How it works',
     steps: {
       one: 'Create the event and Sésamo builds the spreadsheet.',
       two: 'Issue tickets with a signed QR and print them.',
@@ -173,6 +174,8 @@ export const en: Dict = {
     accent: 'Colour',
     logo: 'Event logo',
     logoHint: 'PNG or JPG. Sits top left.',
+    logoUpload: 'Upload logo',
+    logoReplace: 'Replace logo',
     preview: 'Preview',
     previewOf: (n: number) => `Preview · ticket ${n}`,
     downloadPdf: 'Download PDF',
@@ -183,6 +186,7 @@ export const en: Dict = {
     scopeSelected: 'Only the selected ones',
     scopeUnprinted: "The ones I haven't downloaded yet",
     nothingToPrint: 'No tickets match that filter.',
+    willPrint: (n: number) => `${n} ${n === 1 ? 'ticket' : 'tickets'} ready to print`,
   },
 
   scanner: {
@@ -232,6 +236,8 @@ export const en: Dict = {
     title: 'Log',
     lead: 'Every read is written down, whether they got in or not.',
     empty: 'No reads yet.',
+    filterIn: 'Got in',
+    filterTurned: 'Turned away',
     time: 'Time',
     result: 'Result',
     detail: 'Detail',

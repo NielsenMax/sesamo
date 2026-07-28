@@ -9,6 +9,7 @@
   office has printed for a century; it is a choice, not a fallback.
 */
 import { qrMatrix, type QrMatrix } from './qr'
+import { parseLocal } from './dates'
 import type { EventConfig, Ticket } from './types'
 
 export type Prim =
@@ -90,12 +91,14 @@ function truncate(s: string, max: number) {
 function subtitle(event: EventConfig, locale: string): string {
   const parts: string[] = []
   if (event.date) {
-    const d = new Date(event.date)
-    parts.push(
-      Number.isNaN(d.getTime())
-        ? event.date
-        : upper(d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })),
-    )
+    const d = parseLocal(event.date)
+    // Spanish renders this as "15 de ago. de 2026"; a ticket wants "15 AGO 2026".
+    const formatted = d
+      ? upper(d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' }))
+          .replace(/\s+DE\s+/g, ' ')
+          .replace(/\./g, '')
+      : event.date
+    parts.push(formatted)
   }
   if (event.venue) parts.push(upper(event.venue))
   return parts.join('  ·  ')
@@ -296,14 +299,42 @@ function bare({ ticket, payload }: RenderInput): Prim[] {
 
 /* ---------------------------------------------------------------- custom --- */
 
-export const DEFAULT_CUSTOM_FIELDS: CustomField[] = [
-  { id: 'qr', x: 0.72, y: 0.5, size: 0.22, visible: true, color: '#000000' },
-  { id: 'code', x: 0.72, y: 0.86, size: 0.05, visible: true, color: '#000000' },
-  { id: 'holder', x: 0.08, y: 0.62, size: 0.075, visible: true, color: '#000000' },
-  { id: 'tier', x: 0.08, y: 0.8, size: 0.04, visible: false, color: '#000000' },
-  { id: 'event', x: 0.08, y: 0.2, size: 0.07, visible: false, color: '#000000' },
-  { id: 'date', x: 0.08, y: 0.32, size: 0.035, visible: false, color: '#000000' },
-]
+/**
+ * Every custom field is centre-anchored, so the defaults keep well clear of the
+ * edges — a name dropped at x=0.08 would hang half of itself off the ticket.
+ */
+export function defaultCustomFields(ink = '#111111'): CustomField[] {
+  return [
+    { id: 'qr', x: 0.76, y: 0.44, size: 0.24, visible: true, color: '#000000' },
+    { id: 'code', x: 0.76, y: 0.76, size: 0.05, visible: true, color: ink },
+    { id: 'holder', x: 0.34, y: 0.62, size: 0.075, visible: true, color: ink },
+    { id: 'tier', x: 0.34, y: 0.78, size: 0.04, visible: false, color: ink },
+    { id: 'event', x: 0.34, y: 0.24, size: 0.07, visible: false, color: ink },
+    { id: 'date', x: 0.34, y: 0.36, size: 0.035, visible: false, color: ink },
+  ]
+}
+
+export const DEFAULT_CUSTOM_FIELDS: CustomField[] = defaultCustomFields()
+
+/**
+ * Picks a legible default text colour for uploaded artwork by averaging the
+ * image down to a handful of pixels. Dark poster, light type — and the user can
+ * still override every field.
+ */
+export function inkForImage(image: HTMLImageElement): string {
+  const canvas = document.createElement('canvas')
+  canvas.width = 16
+  canvas.height = 16
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return '#111111'
+  ctx.drawImage(image, 0, 0, 16, 16)
+  const { data } = ctx.getImageData(0, 0, 16, 16)
+  let sum = 0
+  for (let i = 0; i < data.length; i += 4) {
+    sum += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]
+  }
+  return sum / (data.length / 4) < 130 ? '#FFFFFF' : '#111111'
+}
 
 function customLayout(input: RenderInput, layout: CustomLayout): Prim[] {
   const { ticket, event, payload, locale, labels } = input
@@ -317,7 +348,20 @@ function customLayout(input: RenderInput, layout: CustomLayout): Prim[] {
     const y = field.y * h
     if (field.id === 'qr') {
       const size = field.size * w
-      prims.push({ t: 'qr', x: x - size / 2, y: y - size / 2, size, matrix: qrMatrix(payload), color: field.color })
+      // A QR needs dark modules on a light field with a quiet zone around it.
+      // Artwork is often dark, and our own fallback decoder never tries an
+      // inverted read — so the code always gets its own white plate, and its
+      // modules stay black. That is a scanning requirement, not a style.
+      const quiet = size * 0.14
+      prims.push({
+        t: 'rect',
+        x: x - size / 2 - quiet,
+        y: y - size / 2 - quiet,
+        w: size + quiet * 2,
+        h: size + quiet * 2,
+        fill: '#FFFFFF',
+      })
+      prims.push({ t: 'qr', x: x - size / 2, y: y - size / 2, size, matrix: qrMatrix(payload) })
       continue
     }
     const size = field.size * w
