@@ -120,28 +120,42 @@ pnpm install
 pnpm dev                       # http://localhost:5173
 ```
 
-### 3. Cloudflare Pages → `sesamo.fernet.cc`
+### 3. Cloudflare → `sesamo.fernet.cc`
+
+El proyecto está conectado como **Worker de assets estáticos** (no Pages): no hay código de
+servidor, solo el `dist/` que sirve Cloudflare.
 
 ```
 Build command:      pnpm build
-Build output:       dist
+Deploy command:     npx wrangler deploy
+Output directory:   dist
 ```
 
-Cloudflare detecta pnpm por el `pnpm-lock.yaml`, y la versión de Node sale del archivo
-`.node-version` (22.17.0). Ese archivo no es opcional: Vite 8 exige `^20.19 || >=22.12`, y el
-Node por defecto de Cloudflare es más viejo.
+La configuración vive en `wrangler.jsonc` y está versionada a propósito. `not_found_handling:
+"single-page-application"` es lo que hace que `/e/<id>/tickets` sirva `index.html` en vez de un
+404 — verificado con `wrangler dev`, junto con que los `/assets/*.js` sigan saliendo como
+JavaScript y no reescritos a HTML.
 
-> Vite tiene que ser **6 o superior**. Cloudflare autodetecta el proyecto y aborta el build con
-> _«The version of Vite used in the project cannot be automatically configured»_ si es menor.
+Tres cosas que hacen fallar el build o el deploy si faltan:
+
+- **`.node-version` (22.17.0)** — Vite 8 exige Node `^20.19 || >=22.12` y el default de
+  Cloudflare es más viejo.
+- **Vite 6 o superior** — Cloudflare autodetecta el proyecto y aborta con _«The version of Vite
+  used in the project cannot be automatically configured»_ si es menor.
+- **`wrangler.jsonc` en el repo** — sin él, `wrangler deploy` entra en su asistente
+  interactivo, que en CI se autorresponde que sí, corre `pnpm add wrangler` y muere con
+  cualquier cosa que pnpm reporte. Así falló el primer deploy: pnpm cortó con
+  `ERR_PNPM_IGNORED_BUILDS: workerd`. Por eso `workerd` también está en `allowBuilds`.
 
 Variables de entorno (producción **y** preview): `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_API_KEY`,
-`VITE_GOOGLE_PROJECT_NUMBER`.
+`VITE_GOOGLE_PROJECT_NUMBER`. Vite las incrusta en el bundle en tiempo de build, así que tienen
+que existir **antes** de compilar, y cambiarlas exige un redeploy.
 
-En **Custom domains**, agregá `sesamo.fernet.cc`. El `public/_redirects` ya manda todas las rutas
-a `index.html`, que es lo que necesita el router.
+En **Custom domains**, agregá `sesamo.fernet.cc`.
 
-Si más adelante usás dominios de preview (`*.pages.dev`), acordate de sumarlos a los orígenes
-autorizados del cliente de OAuth o el login va a fallar ahí.
+Si más adelante usás dominios de preview (`*.workers.dev`, `*.pages.dev`), acordate de sumarlos
+a los orígenes autorizados del cliente de OAuth **y** a los referrers de la clave de API, o el
+login falla ahí. Producción en el dominio propio ya está cubierta.
 
 ---
 

@@ -1,0 +1,20 @@
+{
+  // Sésamo ships as static assets — there is no Worker code, by design. The
+  // whole app runs in the browser and talks to Google directly.
+  //
+  // This file exists so `wrangler deploy` never runs its interactive
+  // "configure this project" flow during a CI build: in a non-interactive
+  // context it auto-answers yes, shells out to pnpm, and dies on anything pnpm
+  // reports — which is exactly how the first deploy failed.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sesamo",
+  "compatibility_date": "2026-07-28",
+  "assets": {
+    "directory": "./dist",
+    // Client-side routing: unknown paths serve index.html instead of a 404.
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

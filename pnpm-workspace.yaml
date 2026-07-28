@@ -1,5 +1,8 @@
-# esbuild needs its install script to place the platform binary Vite runs on.
+# esbuild needs its install script to place the platform binary Vite runs on,
+# and workerd needs its own to fetch the runtime wrangler deploys with. A build
+# script left unapproved makes pnpm exit non-zero, which fails the deploy.
 # core-js only prints a funding banner, so it stays off.
 allowBuilds:
   core-js: false
   esbuild: true
+  workerd: true
