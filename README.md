@@ -94,8 +94,14 @@ La clave y el número de proyecto ya están en `.env.local`.
    <https://console.cloud.google.com/auth/branding?project=sesamo-503823>
    Elegí **External**: el dueño del proyecto es una cuenta `@gmail.com`, y *Internal* solo
    admite cuentas del dominio de la organización. Poné nombre (`Sésamo`) y correo de soporte.
-   Después, en **Audience**, agregate como usuario de prueba —o publicá directamente: los
-   permisos que pide (`drive.file` y `email`) no son sensibles, así que no requiere verificación.
+
+   Después, **Audience** → <https://console.cloud.google.com/auth/audience?project=sesamo-503823>.
+   Si la dejás en *Testing*, el login falla con **Error 403: access_denied** («la app se está
+   probando y solo los verificadores aprobados pueden acceder») para cualquier cuenta que no
+   figure en *Test users* — incluida la tuya. Dos salidas:
+   - **Publish app** (recomendado): los permisos que pide —`drive.file` y `email`— no son
+     sensibles, así que Google **no** exige verificación y no hay tope de 100 cuentas.
+   - o **Add users** y ponés ahí tu propio correo.
 
 2. **Cliente OAuth** →
    <https://console.cloud.google.com/auth/clients?project=sesamo-503823>
