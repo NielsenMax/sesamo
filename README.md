@@ -125,11 +125,14 @@ pnpm dev                       # http://localhost:5173
 ```
 Build command:      pnpm build
 Build output:       dist
-Node version:       20 o superior
 ```
 
-Cloudflare detecta pnpm por el `pnpm-lock.yaml`. Si preferís fijarlo, poné la variable
-`PNPM_VERSION=11.5.2`.
+Cloudflare detecta pnpm por el `pnpm-lock.yaml`, y la versión de Node sale del archivo
+`.node-version` (22.17.0). Ese archivo no es opcional: Vite 8 exige `^20.19 || >=22.12`, y el
+Node por defecto de Cloudflare es más viejo.
+
+> Vite tiene que ser **6 o superior**. Cloudflare autodetecta el proyecto y aborta el build con
+> _«The version of Vite used in the project cannot be automatically configured»_ si es menor.
 
 Variables de entorno (producción **y** preview): `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_API_KEY`,
 `VITE_GOOGLE_PROJECT_NUMBER`.
