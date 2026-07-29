@@ -5,7 +5,7 @@ import { useEvent } from '@/state/event'
 import { Button, Notice, Panel, TextAreaField, TextField } from '@/components/ui'
 import { spreadsheetUrl } from '@/lib/google/sheets'
 import { forgetEvent } from '@/lib/db'
-import { toInput, toStored } from '@/lib/dates'
+import { joinStored, splitStored } from '@/lib/dates'
 
 export function EventSettings() {
   const { t } = useI18n()
@@ -14,6 +14,7 @@ export function EventSettings() {
 
   const [name, setName] = useState('')
   const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
   const [venue, setVenue] = useState('')
   const [notes, setNotes] = useState('')
   const [tiers, setTiers] = useState('')
@@ -22,7 +23,9 @@ export function EventSettings() {
   useEffect(() => {
     if (!event) return
     setName(event.name)
-    setDate(toInput(event.date))
+    const split = splitStored(event.date)
+    setDate(split.date)
+    setTime(split.time)
     setVenue(event.venue)
     setNotes(event.notes)
     setTiers(event.tiers.join(', '))
@@ -35,7 +38,7 @@ export function EventSettings() {
     setSaved(false)
     await saveDetails({
       name: name.trim(),
-      date: toStored(date),
+      date: joinStored(date, time),
       venue: venue.trim(),
       notes: notes.trim(),
       tiers: tiers
@@ -52,9 +55,10 @@ export function EventSettings() {
         <form className="form" onSubmit={submit}>
           <TextField label={t.event.name} value={name} onChange={(e) => setName(e.target.value)} required />
           <div className="grid-2">
-            <TextField label={t.event.date} type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />
-            <TextField label={t.event.venue} value={venue} onChange={(e) => setVenue(e.target.value)} />
+            <TextField label={t.event.date} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <TextField label={t.event.time} type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           </div>
+          <TextField label={t.event.venue} value={venue} onChange={(e) => setVenue(e.target.value)} />
           <TextField label={t.event.tiers} hint={t.event.tiersHint} value={tiers} onChange={(e) => setTiers(e.target.value)} />
           <TextAreaField label={t.event.notes} value={notes} onChange={(e) => setNotes(e.target.value)} />
           <div className="row">

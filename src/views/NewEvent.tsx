@@ -6,7 +6,7 @@ import { TopBar, useMode } from '@/components/Chrome'
 import { Button, Notice, Panel, SelectField, TextAreaField, TextField } from '@/components/ui'
 import { createEventSpreadsheet, initialiseExistingSpreadsheet } from '@/lib/event-sheet'
 import { putEvent } from '@/lib/db'
-import { toStored } from '@/lib/dates'
+import { joinStored } from '@/lib/dates'
 
 export function NewEvent() {
   useMode('day')
@@ -21,6 +21,7 @@ export function NewEvent() {
 
   const [name, setName] = useState(params.get('name')?.replace(/ · Sésamo$/, '') ?? '')
   const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
   const [venue, setVenue] = useState('')
   const [notes, setNotes] = useState('')
   const [tiers, setTiers] = useState('General')
@@ -35,7 +36,7 @@ export function NewEvent() {
     setError(null)
     const input = {
       name: name.trim(),
-      date: toStored(date),
+      date: joinStored(date, time),
       venue: venue.trim(),
       notes: notes.trim(),
       tiers: tiers
@@ -89,14 +90,15 @@ export function NewEvent() {
               onChange={(e) => setName(e.target.value)}
             />
             <div className="grid-2">
-              <TextField label={t.event.date} type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />
-              <TextField
-                label={t.event.venue}
-                placeholder={t.event.venuePlaceholder}
-                value={venue}
-                onChange={(e) => setVenue(e.target.value)}
-              />
+              <TextField label={t.event.date} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <TextField label={t.event.time} type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
+            <TextField
+              label={t.event.venue}
+              placeholder={t.event.venuePlaceholder}
+              value={venue}
+              onChange={(e) => setVenue(e.target.value)}
+            />
             <TextField
               label={t.event.tiers}
               hint={t.event.tiersHint}

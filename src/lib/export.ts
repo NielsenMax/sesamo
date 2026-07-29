@@ -222,6 +222,10 @@ export async function buildPdf(
 /**
  * One PDF per ticket, zipped — what you want when each guest gets their own
  * file rather than a sheet somebody has to cut up.
+ *
+ * The page is always trimmed to the ticket, whatever `options.paper` says: a
+ * file for one guest has no business being a mostly-empty A4. Enforced here
+ * rather than at the call site so no caller can get it wrong.
  */
 export async function buildTicketPdfZip(
   event: EventConfig,
@@ -229,13 +233,14 @@ export async function buildTicketPdfZip(
   design: TicketDesign,
   options: ExportOptions,
 ): Promise<Blob> {
+  const perTicket: ExportOptions = { ...options, paper: 'fit' }
   const zip = new JSZip()
   const folder = zip.folder(slug(event.name))!
   const index: string[] = ['file,code,serial,name,type']
 
   for (let i = 0; i < tickets.length; i++) {
     const ticket = tickets[i]
-    const pdf = await buildPdf(event, [ticket], design, { ...options, onProgress: undefined })
+    const pdf = await buildPdf(event, [ticket], design, { ...perTicket, onProgress: undefined })
     const name = `${ticket.code}${ticket.holder ? `-${slug(ticket.holder)}` : ''}.pdf`
     folder.file(name, pdf)
     index.push([name, ticket.code, ticket.serial, ticket.holder, ticket.tier].map(csv).join(','))

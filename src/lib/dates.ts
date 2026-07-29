@@ -9,12 +9,23 @@ export function parseLocal(value: string | Date | undefined | null): Date | null
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-/** `2026-08-15 21:00`, as stored. Accepts what `<input type="datetime-local">` gives. */
-export function toStored(value: string): string {
-  return value.trim().replace('T', ' ')
+/*
+  Dates are edited as two separate fields — `<input type="date">` and
+  `<input type="time">` — rather than one `datetime-local`. That input is the
+  least consistently implemented of the three across browsers, and splitting it
+  also gives a phone its two native pickers instead of one cramped combined one.
+*/
+
+/** Splits `2026-08-15 21:00` into the two form fields. */
+export function splitStored(value: string): { date: string; time: string } {
+  const [date = '', time = ''] = value.trim().replace('T', ' ').split(/\s+/)
+  return { date: date.slice(0, 10), time: time.slice(0, 5) }
 }
 
-/** The `<input type="datetime-local">` form of a stored date. */
-export function toInput(value: string): string {
-  return value.trim().replace(' ', 'T').slice(0, 16)
+/** Joins the two fields back into stored form. A date with no time is valid. */
+export function joinStored(date: string, time: string): string {
+  const d = date.trim()
+  if (!d) return ''
+  const t = time.trim()
+  return t ? `${d} ${t}` : d
 }

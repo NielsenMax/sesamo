@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Landing } from './views/Landing'
 import { NewEvent } from './views/NewEvent'
 import { EventShell } from './views/EventShell'
+import { EventHome } from './views/EventHome'
 import { Tickets } from './views/Tickets'
 import { Log } from './views/Log'
 import { EventSettings } from './views/EventSettings'
@@ -23,7 +24,7 @@ export function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/new" element={<NewEvent />} />
         <Route path="/e/:spreadsheetId" element={<EventShell />}>
-          <Route index element={<Navigate to="tickets" replace />} />
+          <Route index element={<EventHome />} />
           <Route path="tickets" element={<Tickets />} />
           <Route path="design" element={<Design />} />
           <Route path="scan" element={<Scanner />} />

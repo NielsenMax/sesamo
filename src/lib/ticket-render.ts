@@ -10,6 +10,7 @@
 */
 import { qrMatrix, type QrMatrix } from './qr'
 import { parseLocal } from './dates'
+import { fitText, measure } from './text-metrics'
 import type { EventConfig, Ticket } from './types'
 
 export type Prim =
@@ -83,8 +84,19 @@ function upper(s: string) {
   return s.toLocaleUpperCase()
 }
 
-function truncate(s: string, max: number) {
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s
+/**
+ * A text primitive sized to the space it has. Long event names and long guest
+ * names shrink to fit rather than getting cut, which is the whole point: the
+ * name on a ticket belongs to somebody.
+ */
+function fitted(
+  base: Omit<Extract<Prim, { t: 'text' }>, 't'>,
+  maxWidth: number,
+  minScale = 0.62,
+): Prim {
+  const face = { font: base.font, weight: base.weight, tracking: base.tracking }
+  const result = fitText(base.text, maxWidth, base.size, face, base.size * minScale)
+  return { t: 'text', ...base, text: result.text, size: result.size }
 }
 
 /** The event line: `15 AGO 2026 · 21:00 · CLUB X`, with whichever parts exist. */
@@ -122,23 +134,40 @@ function markPrims(x: number, y: number, size: number, color: string): Prim[] {
   return [box(0, 0, 9, 1), box(0, 1, 1, 8), box(8, 1, 1, 8), box(2, 2, 5, 1), box(2, 3, 1, 6), box(6, 3, 1, 6)]
 }
 
-function tierBadge(x: number, y: number, label: string, accent: string, size = 3): Prim[] {
-  if (!label) return []
-  const padding = size * 0.9
-  const w = label.length * size * 0.72 + padding * 2
-  const h = size * 2.1
+/*
+  The tier chip is sized from its label's real width — "PRENSA ACREDITADA" is
+  three times "VIP" — and clamped so a long tier name shrinks its own type
+  rather than running off the ticket or shoving the guest's name aside.
+*/
+type Badge = { text: string; size: number; width: number; height: number }
+
+function fitBadge(label: string, size: number, maxWidth = Infinity): Badge | null {
+  if (!label) return null
+  const face = (s: number) => ({ weight: 'bold' as const, tracking: s * 0.06 })
+  const padding = size * 1.8
+  const fit = fitText(upper(label), maxWidth - padding, size, face(size), size * 0.66)
+  return {
+    text: fit.text,
+    size: fit.size,
+    width: measure(fit.text, fit.size, face(fit.size)) + fit.size * 1.8,
+    height: size * 2.1,
+  }
+}
+
+function tierBadge(x: number, y: number, badge: Badge | null, accent: string): Prim[] {
+  if (!badge) return []
   return [
-    { t: 'rect', x, y, w, h, fill: accent },
+    { t: 'rect', x, y, w: badge.width, h: badge.height, fill: accent },
     {
       t: 'text',
-      x: x + w / 2,
-      y: y + h / 2 + size * 0.36,
-      text: upper(label),
-      size,
+      x: x + badge.width / 2,
+      y: y + badge.height / 2 + badge.size * 0.36,
+      text: badge.text,
+      size: badge.size,
       weight: 'bold',
       color: '#FFFFFF',
       align: 'center',
-      tracking: size * 0.06,
+      tracking: badge.size * 0.06,
     },
   ]
 }
@@ -168,30 +197,34 @@ function stub({ ticket, event, design, payload, locale, labels }: RenderInput): 
   if (design.logo) p.push({ t: 'image', x: pad, y: pad, w: 9, h: 9, href: design.logo })
   else p.push(...markPrims(pad, pad, 8, accent))
 
+  // The chip may take at most a third of the line; the name gets the rest.
+  const badge = fitBadge(ticket.tier, 3, (split - pad * 2) / 3)
+  const nameWidth = split - pad * 2 - (badge ? badge.width + 4 : 0)
+
   p.push(
-    {
-      t: 'text',
-      x: pad + 12,
-      y: pad + 6.4,
-      text: upper(truncate(event.name, 30)),
-      size: 6.6,
-      weight: 'bold',
-      tracking: -0.05,
-    },
-    { t: 'text', x: pad, y: pad + 16, text: subtitle(event, locale), size: 3.1, color: SOFT, tracking: 0.28 },
+    fitted(
+      { x: pad + 12, y: pad + 6.4, text: upper(event.name), size: 6.6, weight: 'bold', tracking: -0.05 },
+      split - pad - (pad + 12),
+    ),
+    fitted(
+      { x: pad, y: pad + 16, text: subtitle(event, locale), size: 3.1, color: SOFT, tracking: 0.28 },
+      split - pad * 2,
+    ),
     { t: 'line', x1: pad, y1: h - 27, x2: split - pad, y2: h - 27, color: '#D8D8D8', lw: 0.3 },
     { t: 'text', x: pad, y: h - 21, text: upper(labels.holder), size: 2.5, color: SOFT, tracking: 0.3 },
-    {
-      t: 'text',
-      x: pad,
-      y: h - 12,
-      text: truncate(ticket.holder || labels.unassigned, 26),
-      size: 7,
-      weight: ticket.holder ? 'bold' : 'normal',
-      color: ticket.holder ? INK : SOFT,
-      tracking: -0.06,
-    },
-    ...tierBadge(split - pad - (ticket.tier.length * 3 * 0.72 + 5.4), h - 17, ticket.tier, accent, 3),
+    fitted(
+      {
+        x: pad,
+        y: h - 12,
+        text: ticket.holder || labels.unassigned,
+        size: 7,
+        weight: ticket.holder ? 'bold' : 'normal',
+        color: ticket.holder ? INK : SOFT,
+        tracking: -0.06,
+      },
+      nameWidth,
+    ),
+    ...tierBadge(split - pad - (badge?.width ?? 0), h - 17, badge, accent),
   )
 
   // Counterfoil
@@ -221,71 +254,79 @@ function card({ ticket, event, design, payload, locale, labels }: RenderInput): 
   const qrSize = 30
   const accent = design.accent
   const textX = pad + qrSize + 5
+  const textW = w - textX - pad
   return [
     { t: 'rect', x: 0, y: 0, w, h, fill: '#FFFFFF', stroke: INK, lw: 0.4 },
     { t: 'rect', x: 0, y: 0, w, h: 2, fill: accent },
     { t: 'qr', x: pad, y: pad + 4, size: qrSize, matrix: qrMatrix(payload) },
     { t: 'text', x: pad + qrSize / 2, y: h - 5.5, text: ticket.code, size: 3.4, font: 'mono', weight: 'bold', align: 'center' },
-    {
-      t: 'text',
-      x: textX,
-      y: pad + 9,
-      text: upper(truncate(event.name, 20)),
-      size: 4.6,
-      weight: 'bold',
-      tracking: -0.03,
-    },
-    { t: 'text', x: textX, y: pad + 14.5, text: truncate(subtitle(event, locale), 28), size: 2.5, color: SOFT, tracking: 0.2 },
+    fitted({ x: textX, y: pad + 9, text: upper(event.name), size: 4.6, weight: 'bold', tracking: -0.03 }, textW),
+    fitted({ x: textX, y: pad + 14.5, text: subtitle(event, locale), size: 2.5, color: SOFT, tracking: 0.2 }, textW),
     { t: 'line', x1: textX, y1: pad + 18, x2: w - pad, y2: pad + 18, color: '#DDDDDD', lw: 0.3 },
     { t: 'text', x: textX, y: pad + 24, text: upper(labels.holder), size: 2.2, color: SOFT, tracking: 0.3 },
-    {
-      t: 'text',
-      x: textX,
-      y: pad + 30,
-      text: truncate(ticket.holder || labels.unassigned, 18),
-      size: 4.4,
-      weight: ticket.holder ? 'bold' : 'normal',
-      color: ticket.holder ? INK : SOFT,
-      tracking: -0.04,
-    },
-    ...tierBadge(textX, h - 14, ticket.tier, accent, 2.6),
+    fitted(
+      {
+        x: textX,
+        y: pad + 30,
+        text: ticket.holder || labels.unassigned,
+        size: 4.4,
+        weight: ticket.holder ? 'bold' : 'normal',
+        color: ticket.holder ? INK : SOFT,
+        tracking: -0.04,
+      },
+      textW,
+    ),
+    ...tierBadge(textX, h - 14, fitBadge(ticket.tier, 2.6, textW), accent),
   ]
 }
 
 function badge({ ticket, event, design, payload, locale, labels }: RenderInput): Prim[] {
   const { w, h } = PRESET_SIZE.badge
   const pad = 6
-  const qrSize = 38
+  // Vertical stack, top to bottom: header band, event line, name, tier chip,
+  // QR, code. The chip ends at 47 and the QR starts at 50 — they used to
+  // overlap by 2 mm, which put a coloured block over the QR's quiet zone.
+  const chipY = 41
+  const qrSize = 35
+  const qrY = 50
   const accent = design.accent
+  const chip = fitBadge(ticket.tier, 2.8, w - pad * 2)
   return [
     { t: 'rect', x: 0, y: 0, w, h, fill: '#FFFFFF', stroke: INK, lw: 0.4 },
     { t: 'rect', x: 0, y: 0, w, h: 12, fill: accent },
-    {
-      t: 'text',
-      x: w / 2,
-      y: 7.8,
-      text: upper(truncate(event.name, 22)),
-      size: 4.4,
-      weight: 'bold',
-      color: '#FFFFFF',
-      align: 'center',
-      tracking: 0.04,
-    },
-    { t: 'text', x: w / 2, y: 20, text: truncate(subtitle(event, locale), 26), size: 2.5, color: SOFT, align: 'center', tracking: 0.24 },
+    fitted(
+      {
+        x: w / 2,
+        y: 7.8,
+        text: upper(event.name),
+        size: 4.4,
+        weight: 'bold',
+        color: '#FFFFFF',
+        align: 'center',
+        tracking: 0.04,
+      },
+      w - pad * 2,
+    ),
+    fitted(
+      { x: w / 2, y: 20, text: subtitle(event, locale), size: 2.5, color: SOFT, align: 'center', tracking: 0.24 },
+      w - pad * 2,
+    ),
     { t: 'text', x: w / 2, y: 30, text: upper(labels.holder), size: 2.2, color: SOFT, align: 'center', tracking: 0.3 },
-    {
-      t: 'text',
-      x: w / 2,
-      y: 38,
-      text: truncate(ticket.holder || labels.unassigned, 18),
-      size: 5.6,
-      weight: ticket.holder ? 'bold' : 'normal',
-      color: ticket.holder ? INK : SOFT,
-      align: 'center',
-      tracking: -0.05,
-    },
-    ...tierBadge(w / 2 - (ticket.tier.length * 2.8 * 0.72 + 5) / 2, 42, ticket.tier, accent, 2.8),
-    { t: 'qr', x: (w - qrSize) / 2, y: h - qrSize - 16, size: qrSize, matrix: qrMatrix(payload) },
+    fitted(
+      {
+        x: w / 2,
+        y: 38,
+        text: ticket.holder || labels.unassigned,
+        size: 5.6,
+        weight: ticket.holder ? 'bold' : 'normal',
+        color: ticket.holder ? INK : SOFT,
+        align: 'center',
+        tracking: -0.05,
+      },
+      w - pad * 2,
+    ),
+    ...tierBadge(w / 2 - (chip?.width ?? 0) / 2, chipY, chip, accent),
+    { t: 'qr', x: (w - qrSize) / 2, y: qrY, size: qrSize, matrix: qrMatrix(payload) },
     { t: 'text', x: w / 2, y: h - 9, text: ticket.code, size: 4, font: 'mono', weight: 'bold', align: 'center' },
     { t: 'text', x: w / 2, y: h - 4, text: 'SÉSAMO', size: 2.2, color: SOFT, align: 'center', tracking: 0.5 },
     { t: 'line', x1: pad, y1: h - 12.5, x2: w - pad, y2: h - 12.5, color: '#DDDDDD', lw: 0.3 },

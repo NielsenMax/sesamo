@@ -198,7 +198,9 @@ export function Design() {
     setWorking({ done: 0, total: scoped.length })
     try {
       const blob = await buildTicketPdfZip(event, scoped, design, {
-        paper,
+        // Always trimmed to the ticket: a file meant for one guest shouldn't be
+        // a mostly-empty A4 regardless of what the sheet layout is set to.
+        paper: 'fit',
         locale: lang === 'es' ? 'es-AR' : 'en-GB',
         labels: labels(),
         onProgress: (done, total) => setWorking({ done, total }),

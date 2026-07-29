@@ -22,7 +22,9 @@ un QR firmado, las imprimís, y en la puerta escaneás sin internet. Cada lectur
 3. **Emitís entradas.** Cada una lleva un código `A7QK-0042` y un QR `SES1:A7QK:0042:K3F9QX`,
    donde el último tramo es un HMAC-SHA256 truncado del evento y el número de serie.
 4. **Imprimís.** Cuatro modelos listos o tu propio arte, exportado a PDF vectorial (el QR también
-   es vectorial: nítido a cualquier tamaño, y una hoja de 12 entradas pesa 21 kB).
+   es vectorial: nítido a cualquier tamaño, y una hoja de 12 entradas pesa 21 kB). Tres formas de
+   sacarlo: una hoja con varias entradas para cortar, **un PDF por entrada** —recortado al tamaño
+   de la entrada, para mandarle a cada uno el suyo— o los QR sueltos en PNG.
 5. **Escaneás en la puerta.** El teléfono trabaja contra su copia local en IndexedDB: responde en
    un milisegundo y funciona sin señal. Cuando vuelve la conexión, sube todo solo.
 
